@@ -1,0 +1,306 @@
+#!/usr/bin/python
+ 
+from math import sqrt, pow
+import sys
+import random
+import time
+
+#global variable that stores all pairs
+results = []
+
+#Utility functions
+def distance(a, b):
+  return round(sqrt(pow(a[0] - b[0],2) + pow(a[1] - b[1],2)),7)
+
+def dumPrintResults(results):
+	#print sortedResults
+	i=0
+	while(i<len(results)):
+		secondPt=i+1
+		print results[i], results[secondPt]
+		i=secondPt+1
+
+def printResults(sortedResults):
+	#print sortedResults
+	i=0
+	while(i<len(sortedResults)):
+		print sortedResults[i][0], sortedResults[i][1]
+		i+=1
+#(4146.43, 4555.89) (4146.44, 4555.89)
+def sortResults(results):
+	w = 2
+	h = len(results)//2
+	sortedResults = []#[0 for x in range(w)] for y in range(h)] 
+	pairPts = []
+	i=0
+	while(i<len(results)):
+		secondPt=i+1
+		pairPts = []
+		pairPts.append(results[i])
+		pairPts.append(results[secondPt])
+		pairPts.sort(key=lambda k: [k[0], k[1]])
+		sortedResults.append(pairPts)
+		#sortedResults.append((results[i],results[secondPt]))
+		i=secondPt+1
+
+	sortedResults.sort(key=lambda k: [k[0][0], k[0][1], k[1][0], k[1][1]])
+	return sortedResults
+
+def generateRandomList(size):
+	minRange=0-size
+	maxRange=size
+	randomList = []
+	i = 0
+	while i<size:
+		randomList.append((round(random.uniform(minRange,maxRange),7),
+						round(random.uniform(minRange,maxRange),7)))
+		i+=1
+	return list(set(randomList))
+
+##############################################################################################
+#Part 1: brute O(n*2)
+def bruteClosest(points):
+	global results
+	minimum = distance(points[0],points[1])
+	i=0
+	while(i<(len(points)-1)):
+		j=i+1
+		while(j<len(points)):
+			#print i, j
+			#clean results list when new min found and then add pair of points
+			if distance(points[i],points[j])<minimum:
+				minimum = distance(points[i],points[j])
+				results = []
+				results.append(points[i])
+				results.append(points[j])
+			#add pair of points if they have the same distance as the current minimum
+			elif distance(points[i],points[j])==minimum:
+				results.append(points[i])
+				results.append(points[j])
+			j+=1
+		i+=1
+	return minimum
+
+##############################################################################################
+#Part 2: divide and conquer O(n(log n)*2)
+def bruteClosestSimple(points):
+	global results
+	global globalMinimum
+
+	minimum = distance(points[0],points[1])
+	i=0
+	while(i<(len(points)-1)):
+		j=i+1
+		while(j<len(points)):
+			if distance(points[i],points[j])<minimum:
+				minimum = distance(points[i],points[j])
+				#clean results list when new min found and then add pair of points
+				if minimum<globalMinimum:
+					#rint "global minmum updated:", minimum
+					globalMinimum = minimum
+					results = []
+					results.append(points[i])
+					results.append(points[j])
+				elif minimum==globalMinimum:
+					#print "global minmum found same:", minimum
+					if points[i] not in results or points[j] not in results:
+						results.append(points[i])
+						results.append(points[j])
+			#add pair of points if they have the same distance as the current minimum
+			elif distance(points[i],points[j])==globalMinimum:
+				#print "global minmum found same:", minimum
+				if points[i] not in results or points[j] not in results:
+					results.append(points[i])
+					results.append(points[j])
+			j+=1
+		i+=1
+	return min(minimum,globalMinimum)
+
+def stripClosest(points, minimum):
+	global results
+	global globalMinimum
+
+	points.sort(key = lambda pt: pt[1])
+	i=0
+	while i<len(points):
+		j=i+1
+		while j<len(points) and points[j][1]-points[i][1]<minimum:
+			minimum = distance(points[i], points[j])
+			#keep track of pair of points that have smallest distance
+			if minimum<globalMinimum:
+				globalMinimum = minimum
+				#print "global minmum updated:", minimum
+				results = []
+				results.append(points[i])
+				results.append(points[j])
+			elif minimum==globalMinimum:
+				#print "global minmum found same:", minimum
+				if points[i] not in results or points[j] not in results:
+					results.append(points[i])
+					results.append(points[j])
+			j+=1
+		i+=1
+	return min(minimum,globalMinimum)
+
+def basicClosestRec(points):
+	global results
+	global globalMinimum
+
+	if (len(points)<=3):
+		return bruteClosestSimple(points)
+	#find the middle point
+	mid = len(points)//2
+	midPoint = points[mid]
+
+	min_left = basicClosestRec(points[:mid])
+	min_right = basicClosestRec(points[mid:])
+	minimum = min(min_left, min_right)
+	minimum = min(minimum,globalMinimum)
+
+
+	#build a list containing points closer than minimum acoss the line middle line
+	strip = []
+	i=0
+	while(i<len(points)):
+		if abs(points[i][0]-midPoint[0])<minimum:
+			strip.append(points[i])
+		i+=1
+	min_strip = stripClosest(strip, minimum)
+	minimum = min(minimum, min_strip)
+	return min(minimum,globalMinimum)
+	#return min(minimum, stripClosest(strip, minimum))
+
+def basicClosest(points):
+	points.sort(key = lambda pt: pt[0])
+	return basicClosestRec(points)
+
+##############################################################################################
+#Part 3: optimal O(n(log n))
+def stripClosest(points, minimum):
+	global results
+	global globalMinimum
+
+	i=0
+	while i<len(points):
+		j=i+1
+		while j<len(points) and points[j][1]-points[i][1]<minimum:
+			minimum = distance(points[i], points[j])
+			#keep track of pair of points that have smallest distance
+			if minimum<globalMinimum:
+				globalMinimum = minimum
+				#print "global minmum updated:", minimum
+				results = []
+				results.append(points[i])
+				results.append(points[j])
+			elif minimum==globalMinimum:
+				#print "global minmum found same:", minimum
+				if points[i] not in results or points[j] not in results:
+					results.append(points[i])
+					results.append(points[j])
+			j+=1
+		i+=1
+	return min(minimum,globalMinimum)
+
+def optimalClosestRec(pointsX, pointsY):
+	global results
+	global globalMinimum
+
+	if (len(pointsX)<=3):
+		return bruteClosestSimple(pointsX)
+	#find the middle point
+	mid = len(pointsX)//2
+	midPoint = pointsX[mid]
+
+	pointsYL = []
+	pointsYR = []
+
+	for pty in pointsY:
+		if pty[0]<=midPoint[0]:
+			pointsYL.append(pty)
+		else:
+			pointsYR.append(pty)
+
+	min_left = optimalClosestRec(pointsX[:mid],pointsYL)
+	min_right = optimalClosestRec(pointsX[mid:],pointsYR)
+	minimum = min(min_left, min_right)
+	minimum = min(minimum,globalMinimum)
+
+	#build a list containing points closer than minimum acoss the line middle line
+	strip = []
+	i=0
+	while(i<len(pointsY)):
+		if abs(pointsY[i][0]-midPoint[0])<minimum:
+			strip.append(pointsY[i])
+		i+=1
+	min_strip = stripClosest(strip, minimum)
+	minimum = min(minimum, min_strip)
+	return min(minimum,globalMinimum)
+	#return min(minimum, stripClosest(strip, minimum))
+
+def optimalClosest(pointsX,pointsY):
+	pointsX.sort(key = lambda pt: pt[0])
+	pointsY.sort(key = lambda pt: pt[1])
+	#print pointsY
+	#print "\n"
+	return optimalClosestRec(pointsX, pointsY)
+
+
+##############################################################################################
+
+
+
+
+randomlist = generateRandomList(100000)
+#printResults(randomlist)
+rawPoints = randomlist
+
+mode = "not_selected"
+modeSelected = False
+
+
+
+
+#print "input is: "
+#print rawPoints
+#brute
+mode = "Brute"
+if mode == "Brute":
+	results = []
+	print "Brute: "
+	start_time = time.time()
+	print "Closest Distance: ", bruteClosest(rawPoints)
+	printResults(sortResults(results))
+	print("--- %s seconds ---" % (time.time() - start_time))
+	print "\n"
+
+#basic
+mode = "Basic"
+if mode == "Basic":
+	results = []
+	globalMinimum = distance(rawPoints[0],rawPoints[1])
+	print "Basic : "
+	start_time = time.time()
+	print "Closest Distance: ", basicClosest(rawPoints)
+	#dumPrintResults(results)
+	#print "\n"
+	printResults(sortResults(results))
+	print("--- %s seconds ---" % (time.time() - start_time))
+	print "\n"
+
+#optimal
+mode = "Optimal"
+if mode == "Optimal":
+	results = []
+	globalMinimum = distance(rawPoints[0],rawPoints[1])
+	print "Optimal : "
+	start_time = time.time()
+	print "Closest Distance: ", optimalClosest(rawPoints,rawPoints)
+	#dumPrintResults(results)
+	#print "\n"
+	printResults(sortResults(results))
+	print("--- %s seconds ---" % (time.time() - start_time))
+	print "\n"
+
+
+
+
